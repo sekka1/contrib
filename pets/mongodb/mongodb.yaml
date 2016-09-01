@@ -1,0 +1,84 @@
+# A headless service to create DNS records
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  labels:
+    app: mongodb
+spec:
+  ports:
+  - port: 27017
+    protocol: TCP
+    name: mongodb
+  # mongodb-*.mongodb.prod.svc.cluster.local
+  clusterIP: None
+  selector:
+    app: mongodb
+---
+apiVersion: apps/v1alpha1
+kind: PetSet
+metadata:
+  name: mongodb
+spec:
+  serviceName: "mongodb"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: mongodb
+      annotations:
+        pod.alpha.kubernetes.io/initialized: "true"
+        pod.alpha.kubernetes.io/init-containers: '[
+            {
+                "name": "initialize-cluster",
+                "image": "mongo:3.2.9",
+                "imagePullPolicy": "Always",
+                "command": [
+                    "/bin/sh",
+                    "-c",
+                    "apt-get update; apt-get install -y jq curl; chmod 777 /opt/mongodb-init/init-mongo-cluster.sh; /opt/mongodb-init/init-mongo-cluster.sh"
+                ],
+                "volumeMounts": [
+                    {
+                        "name": "mongodb-init",
+                        "mountPath": "/opt/mongodb-init"
+                    }
+                ]
+            }
+        ]'
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: mongodb
+        image: mongo:3.2.9
+        command:
+         - mongod
+         - "--replSet"
+         - my_replica_set
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        volumeMounts:
+        - name: datadir
+          mountPath: /data/db
+      - name: sidecar-init
+        image: mongo:3.2.9
+        command:
+         - mongod
+         - "--port"
+         - "20000"
+      # Volumes and config maps
+      volumes:
+      - name: mongodb-init
+        configMap:
+          name: mongodb-init
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+      annotations:
+        volume.alpha.kubernetes.io/storage-class: anything
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi

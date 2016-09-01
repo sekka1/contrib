@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-init
+data:
+  init-mongo-cluster.sh: |-
+    #!/bin/bash -x
+
+    HOSTNAME=$(hostname)
+    KUBE_NAMESPACE=$(cat /run/secrets/kubernetes.io/serviceaccount/namespace)
+    KUBE_CLUSTER_DOMAIN="cluster.local"
+    KUBE_API_TOKEN=$(cat /run/secrets/kubernetes.io/serviceaccount/token)
+    LAST_PETSET_POD="mongodb-2"
+
+    is_cluster_initialized(){
+
+      RS_STATUS=$(mongo --eval 'rs.status();')
+
+      if [[ ${RS_STATUS} == *"no replset config has been received"* ]]; then
+        # Not initialiezed
+        echo "false"
+      else
+        # initialized already
+        echo "true"
+      fi
+    }
+
+    run_cluster_init_procedure(){
+
+      RETURN=$(mongo --eval 'rs.initiate( { _id: "my_replica_set", version: 1, members: [ { _id: 0, host : "mongodb-0.mongodb.'${KUBE_NAMESPACE}'.svc.'${KUBE_CLUSTER_DOMAIN}':27017" } ] } ); rs.status();')
+      RETURN=$(mongo --eval 'rs.add("mongodb-1.mongodb.'${KUBE_NAMESPACE}'.svc.'${KUBE_CLUSTER_DOMAIN}'");')
+      RETURN=$(mongo --eval 'rs.add("mongodb-2.mongodb.'${KUBE_NAMESPACE}'.svc.'${KUBE_CLUSTER_DOMAIN}'");')
+      RETURN=$(mongo --eval 'rs.status();')
+
+      echo ${RETURN}
+    }
+
+    wait_until_all_petsets_are_up(){
+
+      POD_STATUS=$(get_pod_status)
+
+      while [ ${POD_STATUS} != "Running" ]; do
+        POD_STATUS=$(get_pod_status)
+        sleep 1
+      done
+    }
+
+    get_pod_status(){
+      # Looks for the last petset
+
+      LAST_POD_STATUS=$(curl -v --insecure -H "Authorization: Bearer ${KUBE_API_TOKEN}" https://kubernetes.default.svc.cluster.local/api/v1/namespaces/prod/pods/${LAST_PETSET_POD} | jq --raw-output .status.phase)
+
+      echo ${LAST_POD_STATUS}
+    }
+
+    if [ ${HOSTNAME} == ${LAST_PETSET_POD} ]; then
+
+      echo "This is ${HOSTNAME}"
+
+      wait_until_all_petsets_are_up
+
+      DO_INIT=$(is_cluster_initialized)
+
+      if [ ${DO_INIT} = "false" ]; then
+        echo "Cluster is not initialized.  Initializing..."
+
+        INIT_OUTPUT=$(run_cluster_init_procedure)
+
+        echo ${INIT_OUTPUT}
+
+      else
+        echo "Cluster is already initialized."
+      fi
+
+    fi
