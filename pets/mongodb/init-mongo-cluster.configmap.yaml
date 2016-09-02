@@ -27,9 +27,9 @@ data:
 
     run_cluster_init_procedure(){
 
-      RETURN=$(mongo --eval 'rs.initiate( { _id: "my_replica_set", version: 1, members: [ { _id: 0, host : "mongodb-0.mongodb.'${KUBE_NAMESPACE}'.svc.'${KUBE_CLUSTER_DOMAIN}':27017" } ] } ); rs.status();')
+      RETURN=$(mongo --eval 'rs.initiate( { _id: "my_replica_set", version: 1, members: [ { _id: 0, host : "'${LAST_PETSET_POD}'.mongodb.'${KUBE_NAMESPACE}'.svc.'${KUBE_CLUSTER_DOMAIN}':27017" } ] } ); rs.status();')
+      RETURN=$(mongo --eval 'rs.add("mongodb-0.mongodb.'${KUBE_NAMESPACE}'.svc.'${KUBE_CLUSTER_DOMAIN}'");')
       RETURN=$(mongo --eval 'rs.add("mongodb-1.mongodb.'${KUBE_NAMESPACE}'.svc.'${KUBE_CLUSTER_DOMAIN}'");')
-      RETURN=$(mongo --eval 'rs.add("mongodb-2.mongodb.'${KUBE_NAMESPACE}'.svc.'${KUBE_CLUSTER_DOMAIN}'");')
       RETURN=$(mongo --eval 'rs.status();')
 
       echo ${RETURN}
@@ -57,7 +57,12 @@ data:
 
       echo "This is ${HOSTNAME}"
 
-      wait_until_all_petsets_are_up
+      #
+      # want to do this but then the final petset does not start until the init finishes
+      # There needs to be a do after all petset nodes are up thing
+      #
+      #wait_until_all_petsets_are_up
+      sleep 10
 
       DO_INIT=$(is_cluster_initialized)
 

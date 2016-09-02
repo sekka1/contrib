@@ -28,24 +28,24 @@ spec:
         app: mongodb
       annotations:
         pod.alpha.kubernetes.io/initialized: "true"
-        pod.alpha.kubernetes.io/init-containers: '[
-            {
-                "name": "initialize-cluster",
-                "image": "mongo:3.2.9",
-                "imagePullPolicy": "Always",
-                "command": [
-                    "/bin/sh",
-                    "-c",
-                    "apt-get update; apt-get install -y jq curl; chmod 777 /opt/mongodb-init/init-mongo-cluster.sh; /opt/mongodb-init/init-mongo-cluster.sh"
-                ],
-                "volumeMounts": [
-                    {
-                        "name": "mongodb-init",
-                        "mountPath": "/opt/mongodb-init"
-                    }
-                ]
-            }
-        ]'
+        # pod.alpha.kubernetes.io/init-containers: '[
+        #     {
+        #         "name": "initialize-cluster",
+        #         "image": "mongo:3.2.9",
+        #         "imagePullPolicy": "Always",
+        #         "command": [
+        #             "/bin/sh",
+        #             "-c",
+        #             "apt-get update; apt-get install -y jq curl; chmod 777 /opt/mongodb-init/init-mongo-cluster.sh; /opt/mongodb-init/init-mongo-cluster.sh"
+        #         ],
+        #         "volumeMounts": [
+        #             {
+        #                 "name": "mongodb-init",
+        #                 "mountPath": "/opt/mongodb-init"
+        #             }
+        #         ]
+        #     }
+        # ]'
     spec:
       terminationGracePeriodSeconds: 0
       containers:
@@ -64,9 +64,12 @@ spec:
       - name: sidecar-init
         image: mongo:3.2.9
         command:
-         - mongod
-         - "--port"
-         - "20000"
+         - "/bin/sh"
+         - "-c"
+         - "apt-get update; apt-get install -y jq curl; chmod 777 /opt/mongodb-init/init-mongo-cluster.sh; /opt/mongodb-init/init-mongo-cluster.sh; mongod --port 20000"
+        volumeMounts:
+        - name: mongodb-init
+          mountPath: /opt/mongodb-init
       # Volumes and config maps
       volumes:
       - name: mongodb-init
