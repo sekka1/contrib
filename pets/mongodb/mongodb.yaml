@@ -10,7 +10,7 @@ spec:
   - port: 27017
     protocol: TCP
     name: mongodb
-  # mongodb-*.mongodb.prod.svc.cluster.local
+  # mongodb-*.mongodb.default.svc.cluster.local
   clusterIP: None
   selector:
     app: mongodb

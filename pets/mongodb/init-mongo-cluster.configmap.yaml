@@ -48,7 +48,7 @@ data:
     get_pod_status(){
       # Looks for the last petset
 
-      LAST_POD_STATUS=$(curl -v --insecure -H "Authorization: Bearer ${KUBE_API_TOKEN}" https://kubernetes.default.svc.cluster.local/api/v1/namespaces/prod/pods/${LAST_PETSET_POD} | jq --raw-output .status.phase)
+      LAST_POD_STATUS=$(curl -v --insecure -H "Authorization: Bearer ${KUBE_API_TOKEN}" https://kubernetes.default.svc.cluster.local/api/v1/namespaces/${KUBE_NAMESPACE}/pods/${LAST_PETSET_POD} | jq --raw-output .status.phase)
 
       echo ${LAST_POD_STATUS}
     }
